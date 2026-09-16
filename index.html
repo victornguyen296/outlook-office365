@@ -212,7 +212,7 @@ function renderStart(){
         <label for="in-name">Họ và tên</label>
         <input type="text" id="in-name" placeholder="VD: Nguyễn Văn A" value="${esc(state.name)}">
         <label for="in-dept">Phòng ban</label>
-        <input type="text" id="in-dept" placeholder="VD: Kinh doanh" value="${esc(state.dept)}">
+        <input type="text" id="in-dept" placeholder="VD: IT" value="${esc(state.dept)}">
         <button class="btn-primary" id="start-btn">Bắt đầu làm bài</button>
       </div>
       <p class="notice">Kết quả (họ tên, phòng ban, điểm số) được gửi về cho bộ phận IT để theo dõi tiến độ đào tạo.</p>
@@ -373,7 +373,7 @@ function renderResult(){
     setTimeout(fitCertificate, 0);
     const dlRow = el(`<div style="text-align:center;"><button class="btn-gold" id="dl-btn">⬇ Tải chứng chỉ (PNG)</button></div>`);
     wrap.appendChild(dlRow);
-    wrap.appendChild(el(`<p class="cert-note">Nếu ảnh tải về bị lệch, hãy thử lại sau khi trang đã tải xong hoàn toàn.</p>`));
+    wrap.appendChild(el(`<p class="cert-note"> </p>`));
     dlRow.querySelector("#dl-btn").onclick = () => downloadCertificate(state.name);
   } else {
     const retry = el(`<div style="text-align:center;margin-top:18px;"><button class="btn-primary" id="retry-btn">Làm lại bài kiểm tra</button></div>`);
