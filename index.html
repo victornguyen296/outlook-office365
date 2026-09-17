@@ -145,9 +145,14 @@ const QUIZ = [
 {q:"Version History trong OneDrive/SharePoint dùng để làm gì?",opts:["Xem ai đang online","Xem và khôi phục lại các phiên bản cũ của file","Đổi tên file hàng loạt","Nén file lại cho nhẹ hơn"],correct:1},
 {q:"Quick Steps trong Outlook dùng để làm gì?",opts:["Tự động hóa 1 chuỗi thao tác lặp lại chỉ bằng 1 click","Tăng tốc độ mạng Outlook","Xóa toàn bộ email đã đọc","Đặt mật khẩu nhanh cho hộp thư"],correct:0},
 {q:"Shared Mailbox khác gì với hộp thư cá nhân?",opts:["Không thể gửi thư đi","Là hộp thư dùng chung cho cả phòng ban (VD: info@, hr@), nhiều người cùng truy cập","Chỉ xem được, không gửi được thư","Tự động xóa sau 30 ngày"],correct:1},
+{q:"[Nâng cao] Nếu 1 email thỏa nhiều Rules cùng lúc, Outlook xử lý các Rules đó theo thứ tự nào?",opts:["Ngẫu nhiên mỗi lần khác nhau","Theo thứ tự ưu tiên được sắp xếp trong danh sách Rules, từ trên xuống","Luôn chạy Rule mới tạo gần nhất trước tiên","Chỉ chạy 1 Rule duy nhất, các Rule còn lại bị bỏ qua vĩnh viễn"],correct:1},
+{q:"[Nâng cao] Khi 2 người cùng offline chỉnh sửa 1 file OneDrive rồi đồng bộ lại cùng lúc, điều gì thường xảy ra?",opts:["File luôn tự động hợp nhất hoàn hảo, không có vấn đề gì","OneDrive có thể tạo ra 1 bản sao xung đột (Conflict copy) thay vì tự hợp nhất","Bản sửa sau cùng sẽ bị hệ thống từ chối, không cho lưu","Cả 2 bản đều tự động bị xóa để tránh xung đột"],correct:1},
+{q:"[Nâng cao] Trong SharePoint, khi chia sẻ quyền \"Edit\" cho 1 người ở cấp Folder, mặc định điều gì xảy ra với các file bên trong?",opts:["Chỉ folder được chia sẻ, từng file bên trong vẫn phải chia sẻ riêng","File con tự động kế thừa quyền từ folder cha, trừ khi đã ngắt kế thừa (break inheritance) trước đó","Toàn bộ file bên trong sẽ bị khóa không cho ai sửa","Chỉ những file tạo sau thời điểm chia sẻ mới được áp dụng quyền"],correct:1},
+{q:"[Nâng cao] Trong SharePoint, nếu người duy nhất giữ vai trò Owner của 1 Site nghỉ việc mà chưa bàn giao, điều gì có thể xảy ra?",opts:["Site tự động bị xóa ngay lập tức","Không ai chỉnh được quyền truy cập của Site nếu không có Owner khác hoặc Admin can thiệp","Toàn bộ dữ liệu tự động chuyển hết sang OneDrive cá nhân của người kế nhiệm","Không ảnh hưởng gì vì hệ thống tự gán Owner mới ngay lập tức"],correct:1},
+{q:"[Nâng cao] Một email có tên hiển thị (Display Name) trùng tên đồng nghiệp, nhưng địa chỉ email thật lại thuộc domain lạ, khác domain công ty. Đây là dấu hiệu của điều gì?",opts:["Lỗi hiển thị font chữ của Outlook, không đáng lo","Khả năng cao là giả mạo danh tính (spoofing) nhằm lừa đảo","Đồng nghiệp đang dùng song song 2 tài khoản email khác nhau","Bình thường, có thể bỏ qua không cần kiểm tra thêm"],correct:1},
 ];
 
-const PASS_THRESHOLD = 21;
+const PASS_THRESHOLD = 25;
 
 /* Dán URL Web App Google Apps Script của bạn vào đây (xem hướng dẫn kèm theo).
    Để trống ("") thì app vẫn chạy quiz + chứng chỉ bình thường, chỉ không gửi/xem được kết quả tập trung. */
@@ -156,7 +161,7 @@ const ADMIN_PIN = "2026";
 
 /* ================= STATE ================= */
 const app = document.getElementById("app");
-let state = { view:"start", name:"", dept:"", answers:{}, adminData:null, adminError:null };
+let state = { view:"start", name:"", dept:"", answers:{}, adminData:null, adminError:null, quizStartTime:null };
 function setState(patch){ state = {...state, ...patch}; render(); }
 function el(html){ const t=document.createElement("template"); t.innerHTML=html.trim(); return t.content.firstElementChild; }
 function esc(s){ return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;"); }
@@ -167,12 +172,12 @@ function todayStr(){
   return String(d.getDate()).padStart(2,"0")+"/"+String(d.getMonth()+1).padStart(2,"0")+"/"+d.getFullYear();
 }
 
-function submitResult(name, dept, sc, passed){
+function submitResult(name, dept, sc, passed, durationMin){
   if (!SCRIPT_URL) return;
   fetch(SCRIPT_URL, {
     method:"POST",
     headers:{ "Content-Type":"text/plain;charset=utf-8" }, // tránh preflight CORS với Apps Script
-    body: JSON.stringify({ name, dept, score:sc, total:QUIZ.length, passed, time:new Date().toISOString() }),
+    body: JSON.stringify({ name, dept, score:sc, total:QUIZ.length, passed, duration:durationMin, time:new Date().toISOString() }),
   }).catch(() => { /* gửi ngầm, lỗi mạng không chặn trải nghiệm người làm bài */ });
 }
 
@@ -207,12 +212,12 @@ function renderStart(){
       </div>
       <p class="kicker">BÀI KIỂM TRA SAU ĐÀO TẠO</p>
       <h1>Outlook &amp; Office 365 — Kiểm Tra Kiến Thức</h1>
-      <p class="lede">30 câu hỏi trắc nghiệm, mỗi câu 4 đáp án. Trả lời đúng từ 21/30 câu trở lên để đạt và nhận chứng chỉ hoàn thành.</p>
+      <p class="lede">35 câu hỏi trắc nghiệm, mỗi câu 4 đáp án. Trả lời đúng từ 25/35 câu trở lên để đạt và nhận chứng chỉ hoàn thành.</p>
       <div class="card">
         <label for="in-name">Họ và tên</label>
         <input type="text" id="in-name" placeholder="VD: Nguyễn Văn A" value="${esc(state.name)}">
         <label for="in-dept">Phòng ban</label>
-        <input type="text" id="in-dept" placeholder="VD: IT" value="${esc(state.dept)}">
+        <input type="text" id="in-dept" placeholder="VD: Kinh doanh" value="${esc(state.dept)}">
         <button class="btn-primary" id="start-btn">Bắt đầu làm bài</button>
       </div>
       <p class="notice">Kết quả (họ tên, phòng ban, điểm số) được gửi về cho bộ phận IT để theo dõi tiến độ đào tạo.</p>
@@ -224,7 +229,7 @@ function renderStart(){
     const dept = wrap.querySelector("#in-dept").value.trim();
     if (!name){ wrap.querySelector("#in-name").focus(); return; }
     if (!dept){ wrap.querySelector("#in-dept").focus(); return; }
-    setState({ name, dept, view:"quiz" });
+    setState({ name, dept, view:"quiz", quizStartTime:Date.now() });
   };
   return wrap;
 }
@@ -265,8 +270,9 @@ function renderQuiz(){
       return;
     }
     const sc = score();
-    submitResult(state.name, state.dept, sc, sc >= PASS_THRESHOLD);
-    setState({ view:"result" });
+    const durationMin = state.quizStartTime ? Math.round((Date.now()-state.quizStartTime)/6000)/10 : null;
+    submitResult(state.name, state.dept, sc, sc >= PASS_THRESHOLD, durationMin);
+    setState({ view:"result", lastDuration:durationMin });
     window.scrollTo({top:0, behavior:"smooth"});
   };
   return wrap;
@@ -297,10 +303,12 @@ function renderAdmin(){
   const passCount = data.filter(r => r.passed).length;
   const rows = data.map(r => {
     const when = r.time ? new Date(r.time).toLocaleString("vi-VN") : "—";
+    const dur = (r.duration!==undefined && r.duration!==null && r.duration!=="") ? r.duration+" phút" : "—";
     return `<tr>
       <td>${esc(r.name)||"—"}</td><td>${esc(r.dept)||"—"}</td>
       <td>${r.score}/${r.total}</td>
       <td><span class="badge ${r.passed?"pass":"fail"}">${r.passed?"ĐẠT":"CHƯA ĐẠT"}</span></td>
+      <td>${dur}</td>
       <td>${when}</td>
     </tr>`;
   }).join("");
@@ -317,6 +325,7 @@ function renderAdmin(){
             <th style="padding:8px 7px;border-bottom:1px solid var(--line);">Phòng ban</th>
             <th style="padding:8px 7px;border-bottom:1px solid var(--line);">Điểm</th>
             <th style="padding:8px 7px;border-bottom:1px solid var(--line);">Kết quả</th>
+            <th style="padding:8px 7px;border-bottom:1px solid var(--line);">Thời gian làm bài</th>
             <th style="padding:8px 7px;border-bottom:1px solid var(--line);">Thời gian nộp</th>
           </tr></thead>
           <tbody>${rows}</tbody>
@@ -343,6 +352,7 @@ function renderResult(){
         <label>Điểm số</label>
         <div class="result-score">${sc}/${QUIZ.length}</div>
         <span class="badge ${passed?"pass":"fail"}">${passed?"✓ ĐẠT":"CHƯA ĐẠT"}</span>
+        ${state.lastDuration!=null ? `<p style="font-size:13px;color:var(--ink-muted);margin-top:8px;">Thời gian làm bài: <strong>${state.lastDuration} phút</strong></p>` : ""}
         <p class="lede" style="margin-top:14px;">${passed
           ? "Chúc mừng bạn đã hoàn thành bài kiểm tra Outlook &amp; Office 365. Chứng chỉ của bạn đã sẵn sàng bên dưới."
           : `Bạn cần tối thiểu ${PASS_THRESHOLD}/${QUIZ.length} câu đúng để đạt. Hãy ôn lại tài liệu đào tạo và thử lại.`}</p>
@@ -373,7 +383,7 @@ function renderResult(){
     setTimeout(fitCertificate, 0);
     const dlRow = el(`<div style="text-align:center;"><button class="btn-gold" id="dl-btn">⬇ Tải chứng chỉ (PNG)</button></div>`);
     wrap.appendChild(dlRow);
-    wrap.appendChild(el(`<p class="cert-note"> </p>`));
+    wrap.appendChild(el(`<p class="cert-note">Nếu ảnh tải về bị lệch, hãy thử lại sau khi trang đã tải xong hoàn toàn.</p>`));
     dlRow.querySelector("#dl-btn").onclick = () => downloadCertificate(state.name);
   } else {
     const retry = el(`<div style="text-align:center;margin-top:18px;"><button class="btn-primary" id="retry-btn">Làm lại bài kiểm tra</button></div>`);
@@ -406,9 +416,7 @@ function buildCertificate(name, dept, sc){
         <p class="cert-kicker">CERTIFICATE</p>
         <p class="cert-sub">OF ACHIEVEMENT</p>
         <p class="cert-name">${esc(name)}</p>
-        <p class="cert-desc">This certifies that the above named has successfully completed the
-        <strong>Outlook &amp; Office 365</strong> training program and passed the assessment
-        with a score of <strong>${sc}/${QUIZ.length}</strong>.</p>
+        <p class="cert-desc">For successfully completing the <strong>Outlook &amp; Office 365</strong> training.</p>
         <div class="cert-meta-row">
           <div class="cert-meta"><div class="lbl">DATE</div><div class="val">${todayStr()}</div></div>
           <div class="cert-meta"><div class="lbl">ISSUED BY</div><div class="val">IT Department</div></div>
